@@ -1,0 +1,28 @@
+[package]
+name = "gray-life"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.91"
+license = "MIT"
+description = "A personal life tracker for gray: todos, habits, what's going on, a daily log, check-ins and a first-run ritual."
+
+[[bin]]
+name = "gray-life"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+chrono-tz = "0.10"
+
+[dev-dependencies]
+
+[profile.release]
+strip = true
+
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
