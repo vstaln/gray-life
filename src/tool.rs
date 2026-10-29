@@ -35,7 +35,7 @@ Items are private (hidden in shared channels) unless shared=true.",
                 "note": {"type": "string", "description": "edit: a note on the item"},
                 "include_done": {"type": "boolean"},
                 "name": {"type": "string"},
-                "timezone": {"type": "string", "description": "IANA zone, e.g. Asia/Jakarta"},
+                "timezone": {"type": "string", "description": "IANA zone, e.g. Europe/London"},
                 "quiet_hours": {"type": "string", "description": "e.g. 23:00-08:00"},
                 "morning": {"type": "string"},
                 "evening": {"type": "string"},
@@ -62,6 +62,11 @@ pub fn call(store: &Store, ctx: Ctx, args: &Value) -> Result<String, String> {
     let mut settings = store.load_settings();
     let now = now_for(&settings);
     let action = s(args, "action").ok_or("missing action")?;
+    // In a chat the host clock says nothing about the user (graytest runs
+    // UTC), so nothing gets scheduled until they've told us their zone.
+    if ctx.chat && settings.timezone.is_none() && needs_tz(action, args) {
+        return Err(TZ_MISSING.into());
+    }
     let out = match action {
         "today" => view::today(store, &life, &now, ctx.private),
         "review" => view::review(store, &life, &now, ctx.private),
@@ -99,6 +104,9 @@ pub fn call(store: &Store, ctx: Ctx, args: &Value) -> Result<String, String> {
         "checkins" => return checkins(store, &mut settings, ctx, args),
         "onboarding" => {
             let st = s(args, "status").ok_or("onboarding needs status: done|skip|restart")?;
+            if st == "done" && ctx.chat && settings.timezone.is_none() {
+                return Err(format!("can't finish setup yet: {TZ_MISSING}"));
+            }
             settings.onboarding = match st {
                 "done" => Some("done".into()),
                 "skip" | "skipped" => Some("skipped".into()),
@@ -107,7 +115,7 @@ pub fn call(store: &Store, ctx: Ctx, args: &Value) -> Result<String, String> {
             };
             store.save_settings(&settings).map_err(|e| e.to_string())?;
             return Ok(match st {
-                "restart" | "pending" => format!("First-run ritual is pending again.\n\n{}", ritual::ritual(now.tz.name(), settings.name.as_deref())),
+                "restart" | "pending" => format!("Setup is pending again.\n\n{}", ritual::ritual(&settings)),
                 _ => "Onboarding recorded; it won't come up again.".into(),
             });
         }
@@ -115,6 +123,19 @@ pub fn call(store: &Store, ctx: Ctx, args: &Value) -> Result<String, String> {
     };
     store.save_life(&life).map_err(|e| format!("can't save: {e}"))?;
     Ok(out)
+}
+
+pub const TZ_MISSING: &str = "timezone not set. Ask the user which timezone they're in (a city is fine), save it with life settings {timezone: IANA name}, then retry.";
+
+/// Actions that turn a wall-clock time into a real instant.
+fn needs_tz(action: &str, args: &Value) -> bool {
+    let has = |k: &str| s(args, k).is_some();
+    match action {
+        "add" => has("when") || has("end") || s(args, "kind") == Some("event"),
+        "edit" => has("when") || has("end"),
+        "checkins" => ["morning", "evening", "weekly"].iter().any(|k| s(args, k).is_some_and(|v| v != "off")),
+        _ => false,
+    }
 }
 
 fn reminder_lead(args: &Value) -> Option<Option<Duration>> {
@@ -369,7 +390,7 @@ fn settings_action(store: &Store, settings: &mut Settings, ctx: Ctx, args: &Valu
     }
     let mut tz_changed = false;
     if let Some(z) = s(args, "timezone") {
-        let tz: chrono_tz::Tz = z.parse().map_err(|_| format!("unknown timezone {z:?}; use an IANA name like Asia/Jakarta"))?;
+        let tz: chrono_tz::Tz = z.parse().map_err(|_| format!("unknown timezone {z:?}; use an IANA name like Europe/London or America/New_York"))?;
         tz_changed = settings.timezone.as_deref() != Some(tz.name());
         settings.timezone = Some(tz.name().to_string());
         changed.push(format!("timezone {}", tz.name()));
@@ -502,8 +523,11 @@ pub fn context_text(store: &Store, ctx: Ctx) -> String {
     let mut text = view::prompt_block(store, &life, &now, ctx.private);
     if settings.onboarding.is_none() && ctx.private && ctx.chat && !ctx.cron {
         text.push('\n');
-        text.push_str(&ritual::ritual(now.tz.name(), settings.name.as_deref()));
-    } else if let Some(name) = &settings.name {
+        text.push_str(&ritual::ritual(&settings));
+    } else if settings.timezone.is_none() && ctx.chat && !ctx.cron {
+        text.push_str("\nTimezone not set: before adding anything with a time, ask which timezone they're in.\n");
+    }
+    if let Some(name) = &settings.name {
         text.push_str(&format!("\nThey go by {name}.\n"));
     }
     if let Some(q) = &settings.quiet_hours {

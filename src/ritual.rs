@@ -1,37 +1,49 @@
-//! The first-run ritual and the check-in prompts.
+//! The first-run setup and the check-in prompts.
 //!
-//! The ritual is OpenClaw's BOOTSTRAP.md shape ("a ritual, not a gate";
-//! the user's request comes first; persist what you learn; never repeat)
-//! with Hermes' first-run conduct (one question at a time, never a form,
-//! a skip is taken once and not re-asked). The check-ins are Hermes'
-//! automation blueprints (morning brief, evening wind-down, weekly review,
-//! habit check-in), rewritten around gray-life's own data. Cron runs have
-//! no chat context, so each prompt is self-contained; `[SILENT]` drops the
-//! message when there is nothing worth sending.
+//! Setup borrows OpenClaw's BOOTSTRAP.md conduct (the user's request comes
+//! first, never repeat once done) and Hermes' first-run style (one question
+//! per message, a skip is taken once), but it only collects the settings
+//! the tracker needs: timezone (required), check-ins, quiet hours, an
+//! optional name. No get-to-know-you questions. The check-ins are Hermes'
+//! automation blueprints (morning brief, evening wind-down, weekly review)
+//! rewritten around gray-life's data; each is self-contained because cron
+//! runs have no chat context, and `[SILENT]` drops an empty one.
 
-pub fn ritual(detected_tz: &str, known_name: Option<&str>) -> String {
-    let name_beat = match known_name {
-        Some(n) => format!("1. Name: you already call them {n}. Skip this beat."),
-        None => "1. Name: ask what they'd like you to call them. Save it with `life settings` (name).".into(),
+use crate::store::Settings;
+
+pub fn ritual(settings: &Settings) -> String {
+    let tz = match &settings.timezone {
+        Some(z) => format!("- Timezone: set to {z}. Skip."),
+        None => "- Timezone (required): ask which timezone or city they're in. Never assume it from this machine's clock; \
+the server may be anywhere. Save it with `life settings` (timezone, IANA name). Nothing with a time can be scheduled until this is set."
+            .into(),
+    };
+    let name = match &settings.name {
+        Some(n) => format!("- Name: set to {n}. Skip."),
+        None => "- Name (optional): what they'd like to be called. `life settings` (name). Fine to skip.".into(),
+    };
+    let checkins = if settings.checkins.is_empty() {
+        "- Check-ins: offer a morning summary, an evening wrap-up and a weekly review; ask which they want and at what time. \
+Repeat it back in one sentence and create them with `life checkins` on a yes. None is a fine answer."
+    } else {
+        "- Check-ins: already set. Skip."
+    };
+    let quiet = match &settings.quiet_hours {
+        Some(q) => format!("- Quiet hours: {q}. Skip."),
+        None => "- Quiet hours: ask when you shouldn't message them (e.g. 23:00-08:00). `life settings` (quiet_hours).".into(),
     };
     format!(
-        "gray-life first-run (pending). You're becoming this person's always-on assistant and you don't know them yet.\n\
-Their request always comes first: if this message asks for real work, do it fully and save this for a quiet moment. \
-This is a short conversation, not a questionnaire. One question per message, in your own words, and never list these steps.\n\
-{name_beat}\n\
-2. Timezone: this machine says {detected_tz}. Check it with them in passing (\"it's 14:05 for you, right?\"). Save it with `life settings` (timezone, IANA name).\n\
-3. What to keep track of: ask what's going on for them right now and what they want help staying on top of (habits, things to do, things coming up). \
-Create the first entries right away with `life add`, then tell them in one line what you saved.\n\
-4. Check-ins: offer a morning and an evening check-in and a weekly review; ask what times suit them and when they don't want to hear from you. \
-Restate it as one plain sentence (\"Every day at 08:00 your time I'll send…\"), and on a yes create them with `life checkins` and set quiet_hours with `life settings`.\n\
-5. Close with one line on what they can just tell you (\"I did the gym\", \"dentist friday 4pm\"), then call `life onboarding done`.\n\
-Durable preferences you learn (how they like to be talked to, what to never do) go to the `memory` tool (scope user) as directives: Prefer… / Always… / Never….\n\
-If they want to skip or stop, call `life onboarding skip` and don't bring it up again."
+        "gray-life setup (pending). A few settings are needed before this tracker can schedule anything.\n\
+If this message asks for something else, do that first and bring setup up afterwards. Ask one thing per message, briefly; \
+it's settings, not an interview, so don't ask about their life, goals or personality.\n\
+{tz}\n{name}\n{checkins}\n{quiet}\n\
+Finish with one line on how to use it (\"add dentist fri 4pm\", \"I did the gym\", /life), then call `life onboarding done`. \
+If they want to skip, call `life onboarding skip`, but a missing timezone will still be asked for before anything is scheduled."
     )
 }
 
 /// The `/life onboard` kickoff turn.
-pub const KICKOFF: &str = "Let's do the gray-life first-run setup now: get to know me, ask one thing at a time, and set up what I want tracked.";
+pub const KICKOFF: &str = "Set up gray-life with me now: go through the settings it needs (timezone first), one question at a time.";
 
 pub fn checkin_prompt(kind: &str) -> &'static str {
     match kind {

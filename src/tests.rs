@@ -109,9 +109,17 @@ fn tool_round_trip_and_privacy() {
     let shared = Ctx { private: false, chat: true, cron: false };
     let call = |ctx, v| tool::call(&store, ctx, &v);
 
+    // In a chat, nothing timed is scheduled before the zone is known.
+    let err = call(private, json!({"action": "add", "kind": "todo", "text": "x", "when": "tomorrow 9am"})).unwrap_err();
+    assert!(err.contains("timezone not set"), "{err}");
+    assert!(call(private, json!({"action": "checkins", "morning": "08:00"})).unwrap_err().contains("timezone"));
+    assert!(call(private, json!({"action": "onboarding", "status": "done"})).is_err());
+    // Undated things are fine.
+    call(private, json!({"action": "add", "kind": "habit", "text": "stretch", "schedule": "daily"})).unwrap();
+    call(private, json!({"action": "remove", "id": "h1"})).unwrap();
     call(private, json!({"action": "settings", "timezone": "Asia/Jakarta"})).unwrap();
     let out = call(private, json!({"action": "add", "kind": "todo", "text": "secret thing"})).unwrap();
-    assert!(out.contains("t1"), "{out}");
+    assert!(out.contains("t2"), "{out}");
     call(private, json!({"action": "add", "kind": "todo", "text": "team standup", "shared": true})).unwrap();
     call(private, json!({"action": "add", "kind": "habit", "text": "gym", "schedule": "daily"})).unwrap();
 
@@ -121,15 +129,25 @@ fn tool_round_trip_and_privacy() {
     assert!(!s.contains("secret thing") && s.contains("team standup"), "{s}");
     assert!(s.contains("hidden"));
     // Can't touch private items from a shared channel.
-    assert!(call(shared, json!({"action": "done", "id": "t1"})).is_err());
+    assert!(call(shared, json!({"action": "done", "id": "t2"})).is_err());
 
-    call(private, json!({"action": "done", "id": "h3"})).unwrap();
+    call(private, json!({"action": "done", "id": "h4"})).unwrap();
     assert!(call(private, json!({"action": "today"})).unwrap().contains("done today"));
-    call(private, json!({"action": "undo", "id": "h3"})).unwrap();
+    call(private, json!({"action": "undo", "id": "h4"})).unwrap();
     assert!(!call(private, json!({"action": "today"})).unwrap().contains("done today"));
 
-    call(private, json!({"action": "remove", "id": "t1"})).unwrap();
+    call(private, json!({"action": "remove", "id": "t2"})).unwrap();
     assert!(!call(private, json!({"action": "list"})).unwrap().contains("secret thing"));
     assert!(call(private, json!({"action": "add", "kind": "todo", "text": "x", "when": "blursday"})).is_err());
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn setup_asks_settings_not_life_story() {
+    let mut st = crate::store::Settings::default();
+    let r = crate::ritual::ritual(&st);
+    assert!(r.contains("Timezone (required)") && r.contains("Never assume"));
+    assert!(!r.contains("memory") && !r.contains("don't know them"));
+    st.timezone = Some("Europe/London".into());
+    assert!(crate::ritual::ritual(&st).contains("set to Europe/London. Skip"));
 }

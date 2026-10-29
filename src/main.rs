@@ -143,7 +143,7 @@ fn main() {
     match args.first().map(String::as_str) {
         Some("manifest") => println!("{}", manifest()),
         Some("help" | "-h" | "--help") => println!("{USAGE}"),
-        Some("onboard") => println!("{}", ritual::ritual(tool::now_for(&store.load_settings()).tz.name(), store.load_settings().name.as_deref())),
+        Some("onboard") => println!("{}", ritual::ritual(&store.load_settings())),
         None if !std::io::stdin().is_terminal() => {
             if let Err(e) = sidecar_loop(&store) {
                 eprintln!("gray-life: {e}");
