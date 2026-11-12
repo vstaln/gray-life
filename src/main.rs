@@ -30,7 +30,7 @@ In chat: /life (today) · /life onboard (first-run setup) · /life log [date] ·
 
 fn manifest() -> Value {
     json!({
-        "name": "life",
+        "name": "life", "label": "Life", "preview": "{action} · {kind} · {text|firstline}",
         "version": env!("CARGO_PKG_VERSION"),
         "protocol": "1.1",
         "tools": [tool::schema()],
