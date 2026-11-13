@@ -67,7 +67,11 @@ pub fn habit_line(h: &Habit, today: NaiveDate) -> String {
         "not due today".to_string()
     };
     let (d7, o7) = h.last7(today);
-    let unit = if n == 1 { unit.trim_end_matches('s') } else { unit };
+    let unit = if n == 1 {
+        unit.trim_end_matches('s')
+    } else {
+        unit
+    };
     format!(
         "{} {} — {} · streak {n} {unit} · {d7}/{o7} this week · {state}",
         h.id,
@@ -78,8 +82,15 @@ pub fn habit_line(h: &Habit, today: NaiveDate) -> String {
 
 /// An event is "on" a day when it starts that day, or spans it.
 fn event_on(e: &Event, day: NaiveDate) -> bool {
-    let Some(start) = When::decode(&e.at) else { return false };
-    let end = e.end.as_deref().and_then(When::decode).map(|w| w.date()).unwrap_or(start.date());
+    let Some(start) = When::decode(&e.at) else {
+        return false;
+    };
+    let end = e
+        .end
+        .as_deref()
+        .and_then(When::decode)
+        .map(|w| w.date())
+        .unwrap_or(start.date());
     start.date() <= day && day <= end
 }
 
@@ -115,8 +126,14 @@ pub fn sections(life: &Life, now: &Now, private: bool) -> Sections {
             }
         }
     }
-    for e in life.events.iter().filter(|e| visible(private, e.shared, *e)) {
-        let Some(w) = When::decode(&e.at) else { continue };
+    for e in life
+        .events
+        .iter()
+        .filter(|e| visible(private, e.shared, *e))
+    {
+        let Some(w) = When::decode(&e.at) else {
+            continue;
+        };
         let line = (w.key(), event_line(e, today));
         if event_on(e, today) {
             today_items.push(line);
@@ -136,7 +153,10 @@ pub fn sections(life: &Life, now: &Now, private: bool) -> Sections {
     let hidden = if private {
         0
     } else {
-        life.todos.iter().filter(|t| t.done_at.is_none() && !t.shared).count()
+        life.todos
+            .iter()
+            .filter(|t| t.done_at.is_none() && !t.shared)
+            .count()
             + life.events.iter().filter(|e| !e.shared).count()
             + life.habits.iter().filter(|h| !h.shared).count()
     };
@@ -182,11 +202,23 @@ pub fn today(store: &Store, life: &Life, now: &Now, private: bool) -> String {
             push_section(&mut out, "Today's log", &log, 20);
         }
     }
-    if s.overdue.is_empty() && s.today.is_empty() && s.habits.is_empty() && s.coming.is_empty() && s.undated.is_empty() {
-        out.push_str(if s.hidden > 0 { "\nNothing shared here.\n" } else { "\nNothing tracked yet.\n" });
+    if s.overdue.is_empty()
+        && s.today.is_empty()
+        && s.habits.is_empty()
+        && s.coming.is_empty()
+        && s.undated.is_empty()
+    {
+        out.push_str(if s.hidden > 0 {
+            "\nNothing shared here.\n"
+        } else {
+            "\nNothing tracked yet.\n"
+        });
     }
     if s.hidden > 0 {
-        out.push_str(&format!("\n({} personal item(s) hidden here; they show in the owner's DM.)\n", s.hidden));
+        out.push_str(&format!(
+            "\n({} personal item(s) hidden here; they show in the owner's DM.)\n",
+            s.hidden
+        ));
     }
     out
 }
@@ -206,12 +238,19 @@ note what happened. Small updates need no permission; deletions do.\n",
     push_section(&mut out, "Habits", &s.habits, 8);
     push_section(&mut out, "Next 7 days", &s.coming, 6);
     if !s.undated.is_empty() {
-        out.push_str(&format!("\n{} todo(s) without a date (life list).\n", s.undated.len()));
+        out.push_str(&format!(
+            "\n{} todo(s) without a date (life list).\n",
+            s.undated.len()
+        ));
     }
     if private {
         let log = store.read_log(now.today());
         if let Some(last) = log.last() {
-            out.push_str(&format!("\nToday's log: {} note(s), last: {}\n", log.len(), clip(last, 120)));
+            out.push_str(&format!(
+                "\nToday's log: {} note(s), last: {}\n",
+                log.len(),
+                clip(last, 120)
+            ));
         }
     }
     if s.hidden > 0 {
@@ -259,7 +298,12 @@ pub fn review(store: &Store, life: &Life, now: &Now, private: bool) -> String {
             let d = today - Duration::days(i);
             let log = store.read_log(d);
             if !log.is_empty() {
-                days.push(format!("{} — {} note(s): {}", d.format("%a %-d"), log.len(), clip(&log.join(" · "), 200)));
+                days.push(format!(
+                    "{} — {} note(s): {}",
+                    d.format("%a %-d"),
+                    log.len(),
+                    clip(&log.join(" · "), 200)
+                ));
             }
         }
         push_section(&mut out, "Log", &days, 7);
@@ -267,7 +311,13 @@ pub fn review(store: &Store, life: &Life, now: &Now, private: bool) -> String {
     out
 }
 
-pub fn list(life: &Life, now: &Now, private: bool, kind: Option<&str>, include_done: bool) -> String {
+pub fn list(
+    life: &Life,
+    now: &Now,
+    private: bool,
+    kind: Option<&str>,
+    include_done: bool,
+) -> String {
     let today = now.today();
     let mut out = String::new();
     if kind.is_none_or(|k| k.starts_with("todo")) {
@@ -299,7 +349,11 @@ pub fn list(life: &Life, now: &Now, private: bool, kind: Option<&str>, include_d
             .filter(|e| visible(private, e.shared, *e))
             .filter(|e| {
                 include_done
-                    || e.end.as_deref().or(Some(e.at.as_str())).and_then(When::decode).is_some_and(|w| w.date() >= today)
+                    || e.end
+                        .as_deref()
+                        .or(Some(e.at.as_str()))
+                        .and_then(When::decode)
+                        .is_some_and(|w| w.date() >= today)
             })
             .collect();
         v.sort_by_key(|e| When::decode(&e.at).map(|w| w.key()));

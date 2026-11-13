@@ -126,7 +126,11 @@ impl Store {
     /// Chat homes set their own `GRAY_HOME` but pass `GRAY_USER_HOME`, so
     /// every conversation lands on the same store.
     pub fn locate() -> Store {
-        let env = |k: &str| std::env::var_os(k).filter(|v| !v.is_empty()).map(PathBuf::from);
+        let env = |k: &str| {
+            std::env::var_os(k)
+                .filter(|v| !v.is_empty())
+                .map(PathBuf::from)
+        };
         let dir = env("GRAY_LIFE_DIR")
             .or_else(|| env("GRAY_USER_HOME").map(|h| h.join("life")))
             .or_else(|| env("HOME").map(|h| h.join(".gray").join("life")))
@@ -174,7 +178,9 @@ impl Store {
     }
 
     pub fn log_path(&self, day: NaiveDate) -> PathBuf {
-        self.dir.join("log").join(format!("{}.md", day.format("%Y-%m-%d")))
+        self.dir
+            .join("log")
+            .join(format!("{}.md", day.format("%Y-%m-%d")))
     }
     pub fn read_log(&self, day: NaiveDate) -> Vec<String> {
         std::fs::read_to_string(self.log_path(day))
@@ -245,7 +251,9 @@ impl Habit {
         }
     }
     fn done_in_week(&self, monday: NaiveDate) -> usize {
-        (0..7).filter(|i| self.done_on(monday + Duration::days(*i))).count()
+        (0..7)
+            .filter(|i| self.done_on(monday + Duration::days(*i)))
+            .count()
     }
     fn created_date(&self) -> NaiveDate {
         NaiveDate::parse_from_str(self.created.get(..10).unwrap_or(""), "%Y-%m-%d")
@@ -264,7 +272,10 @@ impl Habit {
     /// day isn't over.
     pub fn streak(&self, today: NaiveDate) -> (u32, &'static str) {
         // Backfilled check-ins can predate creation; count from whichever is first.
-        let first_log = self.log.first().and_then(|k| NaiveDate::parse_from_str(k, "%Y-%m-%d").ok());
+        let first_log = self
+            .log
+            .first()
+            .and_then(|k| NaiveDate::parse_from_str(k, "%Y-%m-%d").ok());
         let born = first_log.map_or(self.created_date(), |f| f.min(self.created_date()));
         match &self.schedule {
             Schedule::PerWeek(n) => {

@@ -24,8 +24,16 @@ impl Ctx {
             .and_then(|h| std::fs::read(h.join("route.json")).ok())
             .and_then(|b| serde_json::from_slice::<Value>(&b).ok());
         let mut ctx = match &route {
-            None => Ctx { private: true, chat: false, cron },
-            Some(r) => Ctx { private: route_is_dm(r), chat: true, cron },
+            None => Ctx {
+                private: true,
+                chat: false,
+                cron,
+            },
+            Some(r) => Ctx {
+                private: route_is_dm(r),
+                chat: true,
+                cron,
+            },
         };
         match std::env::var("GRAY_LIFE_CONTEXT").ok().as_deref() {
             Some("private") => ctx.private = true,
@@ -58,6 +66,9 @@ fn discord_home() -> Option<String> {
     let base = std::env::var_os("XDG_CONFIG_HOME")
         .map(PathBuf::from)
         .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))?;
-    let v: Value = serde_json::from_slice(&std::fs::read(base.join("gray-discord/config.json")).ok()?).ok()?;
-    v.get("channel_id").and_then(Value::as_str).map(str::to_string)
+    let v: Value =
+        serde_json::from_slice(&std::fs::read(base.join("gray-discord/config.json")).ok()?).ok()?;
+    v.get("channel_id")
+        .and_then(Value::as_str)
+        .map(str::to_string)
 }

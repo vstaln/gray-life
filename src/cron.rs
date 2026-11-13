@@ -17,7 +17,12 @@ pub fn disabled() -> bool {
 }
 
 /// `gray cron add …` → the new job id.
-pub fn add(schedule: &str, prompt: &str, name: Option<&str>, reminder: bool) -> Result<String, String> {
+pub fn add(
+    schedule: &str,
+    prompt: &str,
+    name: Option<&str>,
+    reminder: bool,
+) -> Result<String, String> {
     if disabled() {
         return Err("cron disabled (GRAY_LIFE_NO_CRON)".into());
     }
@@ -29,15 +34,23 @@ pub fn add(schedule: &str, prompt: &str, name: Option<&str>, reminder: bool) -> 
     if let Some(n) = name {
         cmd.args(["--name", n]);
     }
-    let out = cmd.output().map_err(|e| format!("can't run gray cron: {e}"))?;
+    let out = cmd
+        .output()
+        .map_err(|e| format!("can't run gray cron: {e}"))?;
     let stdout = String::from_utf8_lossy(&out.stdout);
     if !out.status.success() {
         let err = String::from_utf8_lossy(&out.stderr);
-        return Err(format!("gray cron add failed: {}", err.trim().lines().last().unwrap_or("")));
+        return Err(format!(
+            "gray cron add failed: {}",
+            err.trim().lines().last().unwrap_or("")
+        ));
     }
     stdout
         .lines()
-        .find_map(|l| l.strip_prefix("added ").and_then(|r| r.split_whitespace().next()))
+        .find_map(|l| {
+            l.strip_prefix("added ")
+                .and_then(|r| r.split_whitespace().next())
+        })
         .map(str::to_string)
         .ok_or_else(|| format!("unexpected gray cron output: {}", stdout.trim()))
 }
@@ -46,7 +59,9 @@ pub fn remove(job: &str) {
     if disabled() || job.is_empty() {
         return;
     }
-    let _ = Command::new(gray_bin()).args(["cron", "remove", job]).output();
+    let _ = Command::new(gray_bin())
+        .args(["cron", "remove", job])
+        .output();
 }
 
 /// Is a chat binding present (so a reminder has somewhere to go)?
@@ -60,7 +75,13 @@ pub fn host_cron(tz: Tz, time: NaiveTime, day: Option<u32>) -> String {
     host_cron_in(tz, time, day, &Local, Utc::now())
 }
 
-pub fn host_cron_in<H: TimeZone>(tz: Tz, time: NaiveTime, day: Option<u32>, host: &H, now: chrono::DateTime<Utc>) -> String {
+pub fn host_cron_in<H: TimeZone>(
+    tz: Tz,
+    time: NaiveTime,
+    day: Option<u32>,
+    host: &H,
+    now: chrono::DateTime<Utc>,
+) -> String {
     let today = now.with_timezone(&tz).date_naive();
     let mut date = today;
     if let Some(d) = day {
@@ -75,6 +96,11 @@ pub fn host_cron_in<H: TimeZone>(tz: Tz, time: NaiveTime, day: Option<u32>, host
     match day {
         None => format!("{} {} * * *", h.minute(), h.hour()),
         // cron day-of-week: 0 = Sunday.
-        Some(_) => format!("{} {} * * {}", h.minute(), h.hour(), h.weekday().num_days_from_sunday()),
+        Some(_) => format!(
+            "{} {} * * {}",
+            h.minute(),
+            h.hour(),
+            h.weekday().num_days_from_sunday()
+        ),
     }
 }

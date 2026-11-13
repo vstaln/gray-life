@@ -68,13 +68,25 @@ fn streaks() {
     let h = habit(Schedule::Daily, "2026-10-29", &["2026-10-28", "2026-10-29"]);
     assert_eq!(h.streak(today).0, 2);
     // Today not done yet doesn't break it; a gap does.
-    let h = habit(Schedule::Daily, "2026-10-01", &["2026-10-25", "2026-10-27", "2026-10-28"]);
+    let h = habit(
+        Schedule::Daily,
+        "2026-10-01",
+        &["2026-10-25", "2026-10-27", "2026-10-28"],
+    );
     assert_eq!(h.streak(today).0, 2);
     // Unscheduled days are skipped: mon,wed,fri done on 23 (fri), 26 (mon), 28 (wed).
-    let h = habit(Schedule::parse("mon,wed,fri").unwrap(), "2026-10-01", &["2026-10-23", "2026-10-26", "2026-10-28"]);
+    let h = habit(
+        Schedule::parse("mon,wed,fri").unwrap(),
+        "2026-10-01",
+        &["2026-10-23", "2026-10-26", "2026-10-28"],
+    );
     assert_eq!(h.streak(today).0, 3);
     // 2/week: last week (19–25 Oct) met, this week not yet → 1 week.
-    let h = habit(Schedule::PerWeek(2), "2026-10-01", &["2026-10-20", "2026-10-22", "2026-10-27"]);
+    let h = habit(
+        Schedule::PerWeek(2),
+        "2026-10-01",
+        &["2026-10-20", "2026-10-22", "2026-10-27"],
+    );
     assert_eq!(h.streak(today), (1, "weeks"));
     assert!(h.due_today(today));
 }
@@ -84,17 +96,30 @@ fn host_cron_converts_user_zone() {
     let now = Utc.with_ymd_and_hms(2026, 10, 29, 2, 0, 0).unwrap();
     let t = |s| NaiveTime::parse_from_str(s, "%H:%M").unwrap();
     // 08:00 WIB = 01:00 UTC.
-    assert_eq!(cron::host_cron_in(JKT, t("08:00"), None, &Utc, now), "0 1 * * *");
+    assert_eq!(
+        cron::host_cron_in(JKT, t("08:00"), None, &Utc, now),
+        "0 1 * * *"
+    );
     // Sunday 18:00 WIB = Sunday 11:00 UTC.
-    assert_eq!(cron::host_cron_in(JKT, t("18:00"), Some(6), &Utc, now), "0 11 * * 0");
+    assert_eq!(
+        cron::host_cron_in(JKT, t("18:00"), Some(6), &Utc, now),
+        "0 11 * * 0"
+    );
     // Monday 05:00 WIB = Sunday 22:00 UTC: the weekday shifts too.
-    assert_eq!(cron::host_cron_in(JKT, t("05:00"), Some(0), &Utc, now), "0 22 * * 0");
+    assert_eq!(
+        cron::host_cron_in(JKT, t("05:00"), Some(0), &Utc, now),
+        "0 22 * * 0"
+    );
 }
 
 #[test]
 fn dm_detection() {
-    assert!(route_is_dm(&json!({"platform": "discord", "route": "1", "kind": "dm"})));
-    assert!(!route_is_dm(&json!({"platform": "discord", "route": "1", "kind": "channel"})));
+    assert!(route_is_dm(
+        &json!({"platform": "discord", "route": "1", "kind": "dm"})
+    ));
+    assert!(!route_is_dm(
+        &json!({"platform": "discord", "route": "1", "kind": "channel"})
+    ));
     assert!(!route_is_dm(&json!({"platform": "telegram", "route": "1"})));
 }
 
@@ -105,40 +130,97 @@ fn tool_round_trip_and_privacy() {
     let dir = std::env::temp_dir().join(format!("gray-life-test-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     let store = Store { dir: dir.clone() };
-    let private = Ctx { private: true, chat: true, cron: false };
-    let shared = Ctx { private: false, chat: true, cron: false };
+    let private = Ctx {
+        private: true,
+        chat: true,
+        cron: false,
+    };
+    let shared = Ctx {
+        private: false,
+        chat: true,
+        cron: false,
+    };
     let call = |ctx, v| tool::call(&store, ctx, &v);
 
     // In a chat, nothing timed is scheduled before the zone is known.
-    let err = call(private, json!({"action": "add", "kind": "todo", "text": "x", "when": "tomorrow 9am"})).unwrap_err();
+    let err = call(
+        private,
+        json!({"action": "add", "kind": "todo", "text": "x", "when": "tomorrow 9am"}),
+    )
+    .unwrap_err();
     assert!(err.contains("timezone not set"), "{err}");
-    assert!(call(private, json!({"action": "checkins", "morning": "08:00"})).unwrap_err().contains("timezone"));
+    assert!(
+        call(private, json!({"action": "checkins", "morning": "08:00"}))
+            .unwrap_err()
+            .contains("timezone")
+    );
     assert!(call(private, json!({"action": "onboarding", "status": "done"})).is_err());
     // Undated things are fine.
-    call(private, json!({"action": "add", "kind": "habit", "text": "stretch", "schedule": "daily"})).unwrap();
+    call(
+        private,
+        json!({"action": "add", "kind": "habit", "text": "stretch", "schedule": "daily"}),
+    )
+    .unwrap();
     call(private, json!({"action": "remove", "id": "h1"})).unwrap();
-    call(private, json!({"action": "settings", "timezone": "Asia/Jakarta"})).unwrap();
-    let out = call(private, json!({"action": "add", "kind": "todo", "text": "secret thing"})).unwrap();
+    call(
+        private,
+        json!({"action": "settings", "timezone": "Asia/Jakarta"}),
+    )
+    .unwrap();
+    let out = call(
+        private,
+        json!({"action": "add", "kind": "todo", "text": "secret thing"}),
+    )
+    .unwrap();
     assert!(out.contains("t2"), "{out}");
-    call(private, json!({"action": "add", "kind": "todo", "text": "team standup", "shared": true})).unwrap();
-    call(private, json!({"action": "add", "kind": "habit", "text": "gym", "schedule": "daily"})).unwrap();
+    call(
+        private,
+        json!({"action": "add", "kind": "todo", "text": "team standup", "shared": true}),
+    )
+    .unwrap();
+    call(
+        private,
+        json!({"action": "add", "kind": "habit", "text": "gym", "schedule": "daily"}),
+    )
+    .unwrap();
 
     let p = call(private, json!({"action": "today"})).unwrap();
     assert!(p.contains("secret thing") && p.contains("team standup"));
     let s = call(shared, json!({"action": "today"})).unwrap();
-    assert!(!s.contains("secret thing") && s.contains("team standup"), "{s}");
+    assert!(
+        !s.contains("secret thing") && s.contains("team standup"),
+        "{s}"
+    );
     assert!(s.contains("hidden"));
     // Can't touch private items from a shared channel.
     assert!(call(shared, json!({"action": "done", "id": "t2"})).is_err());
 
     call(private, json!({"action": "done", "id": "h4"})).unwrap();
-    assert!(call(private, json!({"action": "today"})).unwrap().contains("done today"));
+    assert!(
+        call(private, json!({"action": "today"}))
+            .unwrap()
+            .contains("done today")
+    );
     call(private, json!({"action": "undo", "id": "h4"})).unwrap();
-    assert!(!call(private, json!({"action": "today"})).unwrap().contains("done today"));
+    assert!(
+        !call(private, json!({"action": "today"}))
+            .unwrap()
+            .contains("done today")
+    );
 
     call(private, json!({"action": "remove", "id": "t2"})).unwrap();
-    assert!(!call(private, json!({"action": "list"})).unwrap().contains("secret thing"));
-    assert!(call(private, json!({"action": "add", "kind": "todo", "text": "x", "when": "blursday"})).is_err());
+    assert!(
+        !call(private, json!({"action": "list"}))
+            .unwrap()
+            .contains("secret thing")
+    );
+    assert!(
+        call(
+            private,
+            json!({"action": "add", "kind": "todo", "text": "x", "when": "blursday"})
+        )
+        .is_err()
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 

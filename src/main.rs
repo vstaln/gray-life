@@ -11,11 +11,11 @@ mod cron;
 mod ctx;
 mod ritual;
 mod store;
+#[cfg(test)]
+mod tests;
 mod tool;
 mod view;
 mod when;
-#[cfg(test)]
-mod tests;
 
 use std::io::{BufRead, IsTerminal, Write};
 
@@ -35,6 +35,7 @@ fn manifest() -> Value {
         "protocol": "1.1",
         "tools": [tool::schema()],
         "commands": ["/life"],
+        "command_descriptions": {"/life": "todos, events, habits and the daily log"},
         "hooks": ["prompt/context"],
         "completion": ["today", "onboard", "list", "review", "log", "help"],
     })
@@ -73,7 +74,11 @@ fn command_run(store: &Store, params: &Value) -> Value {
     let argv: Vec<String> = params
         .get("argv")
         .and_then(Value::as_array)
-        .map(|a| a.iter().filter_map(|e| e.as_str().map(str::to_string)).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(|e| e.as_str().map(str::to_string))
+                .collect()
+        })
         .unwrap_or_default();
     let ctx = Ctx::detect();
     match argv.first().map(String::as_str) {
@@ -100,12 +105,16 @@ fn sidecar_loop(store: &Store) -> std::io::Result<()> {
     let stdout = std::io::stdout();
     for line in stdin.lock().lines() {
         let Ok(line) = line else { break };
-        let Ok(v) = serde_json::from_str::<Value>(&line) else { continue };
+        let Ok(v) = serde_json::from_str::<Value>(&line) else {
+            continue;
+        };
         let method = v.get("method").and_then(Value::as_str).unwrap_or("");
         if method == "plugin/shutdown" {
             break;
         }
-        let Some(id) = v.get("id").cloned().filter(|i| !i.is_null()) else { continue };
+        let Some(id) = v.get("id").cloned().filter(|i| !i.is_null()) else {
+            continue;
+        };
         let params = v.get("params").cloned().unwrap_or(Value::Null);
         let reply = match method {
             "plugin/manifest" => json!({ "id": id, "result": manifest() }),
@@ -128,7 +137,9 @@ fn sidecar_loop(store: &Store) -> std::io::Result<()> {
                 json!({ "id": id, "result": result })
             }
             "command/run" => json!({ "id": id, "result": command_run(store, &params) }),
-            other => json!({ "id": id, "error": { "code": -32601, "message": format!("method not found: {other}") } }),
+            other => {
+                json!({ "id": id, "error": { "code": -32601, "message": format!("method not found: {other}") } })
+            }
         };
         let mut o = stdout.lock();
         writeln!(o, "{reply}")?;
