@@ -155,16 +155,17 @@ pub fn parse(raw: &str, now: NaiveDateTime, tz: Tz) -> Result<When, String> {
         let unit = rest[digits.len()..].trim();
         let unit = unit.trim_start_matches(' ');
         return Ok(match unit.chars().next() {
-            Some('m') if !unit.starts_with("mo") => {
-                When::At(trim_secs(now + Duration::minutes(n)))
-            }
+            Some('m') if !unit.starts_with("mo") => When::At(trim_secs(now + Duration::minutes(n))),
             Some('h') => When::At(trim_secs(now + Duration::hours(n))),
             Some('d') => When::Day(today + Duration::days(n)),
             Some('w') => When::Day(today + Duration::weeks(n)),
             _ => return Err(bad()),
         });
     }
-    let words: Vec<&str> = s.split_whitespace().filter(|w| *w != "at" && *w != "on").collect();
+    let words: Vec<&str> = s
+        .split_whitespace()
+        .filter(|w| *w != "at" && *w != "on")
+        .collect();
     // Find the date part (first 1-2 words), then an optional clock.
     let (date, used): (Option<NaiveDate>, usize) = match words.as_slice() {
         ["today", ..] | ["tonight", ..] => (Some(today), 1),
@@ -173,17 +174,44 @@ pub fn parse(raw: &str, now: NaiveDateTime, tz: Tz) -> Result<When, String> {
         ["next", w, ..] if weekday(w).is_some() => {
             // That weekday in next calendar week (plain "fri" is the coming one).
             let wd = weekday(w).expect("checked");
-            (Some(week_start(today) + Duration::days(7 + wd.num_days_from_monday() as i64)), 2)
+            (
+                Some(week_start(today) + Duration::days(7 + wd.num_days_from_monday() as i64)),
+                2,
+            )
         }
         ["next", "week", ..] => (Some(today + Duration::days(7)), 2),
-        [w, ..] if weekday(w).is_some() => (Some(next_weekday(today, weekday(w).expect("checked"))), 1),
-        [a, b, ..] if month(a).is_some() && b.trim_end_matches([',', 's', 't', 'n', 'd', 'r', 'h']).parse::<u32>().is_ok() => {
-            let d = b.trim_end_matches([',', 's', 't', 'n', 'd', 'r', 'h']).parse().expect("checked");
-            (Some(month_day(today, month(a).expect("checked"), d).ok_or_else(bad)?), 2)
+        [w, ..] if weekday(w).is_some() => {
+            (Some(next_weekday(today, weekday(w).expect("checked"))), 1)
         }
-        [a, b, ..] if month(b).is_some() && a.trim_end_matches(['s', 't', 'n', 'd', 'r', 'h']).parse::<u32>().is_ok() => {
-            let d = a.trim_end_matches(['s', 't', 'n', 'd', 'r', 'h']).parse().expect("checked");
-            (Some(month_day(today, month(b).expect("checked"), d).ok_or_else(bad)?), 2)
+        [a, b, ..]
+            if month(a).is_some()
+                && b.trim_end_matches([',', 's', 't', 'n', 'd', 'r', 'h'])
+                    .parse::<u32>()
+                    .is_ok() =>
+        {
+            let d = b
+                .trim_end_matches([',', 's', 't', 'n', 'd', 'r', 'h'])
+                .parse()
+                .expect("checked");
+            (
+                Some(month_day(today, month(a).expect("checked"), d).ok_or_else(bad)?),
+                2,
+            )
+        }
+        [a, b, ..]
+            if month(b).is_some()
+                && a.trim_end_matches(['s', 't', 'n', 'd', 'r', 'h'])
+                    .parse::<u32>()
+                    .is_ok() =>
+        {
+            let d = a
+                .trim_end_matches(['s', 't', 'n', 'd', 'r', 'h'])
+                .parse()
+                .expect("checked");
+            (
+                Some(month_day(today, month(b).expect("checked"), d).ok_or_else(bad)?),
+                2,
+            )
         }
         _ => (None, 0),
     };
@@ -206,12 +234,15 @@ pub fn parse(raw: &str, now: NaiveDateTime, tz: Tz) -> Result<When, String> {
 
 fn trim_secs(t: NaiveDateTime) -> NaiveDateTime {
     use chrono::Timelike;
-    t.with_second(0).and_then(|t| t.with_nanosecond(0)).unwrap_or(t)
+    t.with_second(0)
+        .and_then(|t| t.with_nanosecond(0))
+        .unwrap_or(t)
 }
 
 /// The next `wd` on or after today.
 fn next_weekday(today: NaiveDate, wd: Weekday) -> NaiveDate {
-    let ahead = (7 + wd.num_days_from_monday() as i64 - today.weekday().num_days_from_monday() as i64) % 7;
+    let ahead =
+        (7 + wd.num_days_from_monday() as i64 - today.weekday().num_days_from_monday() as i64) % 7;
     today + Duration::days(ahead)
 }
 
@@ -252,7 +283,11 @@ impl Schedule {
                 let n = n.trim_end_matches('x');
                 let n: u8 = n.parse().map_err(|_| bad())?;
                 if (1..=7).contains(&n) {
-                    return Ok(if n == 7 { Schedule::Daily } else { Schedule::PerWeek(n) });
+                    return Ok(if n == 7 {
+                        Schedule::Daily
+                    } else {
+                        Schedule::PerWeek(n)
+                    });
                 }
                 return Err(bad());
             }
@@ -260,14 +295,22 @@ impl Schedule {
         let mut days: Vec<u8> = s
             .split([',', ' ', '/', '&'])
             .filter(|w| !w.is_empty() && *w != "and" && *w != "every")
-            .map(|w| weekday(w).map(|d| d.num_days_from_monday() as u8).ok_or_else(bad))
+            .map(|w| {
+                weekday(w)
+                    .map(|d| d.num_days_from_monday() as u8)
+                    .ok_or_else(bad)
+            })
             .collect::<Result<_, _>>()?;
         days.sort_unstable();
         days.dedup();
         if days.is_empty() {
             return Err(bad());
         }
-        Ok(if days.len() == 7 { Schedule::Daily } else { Schedule::Days(days) })
+        Ok(if days.len() == 7 {
+            Schedule::Daily
+        } else {
+            Schedule::Days(days)
+        })
     }
 
     pub fn show(&self) -> String {
@@ -276,7 +319,11 @@ impl Schedule {
             Schedule::Daily => "daily".into(),
             Schedule::Days(d) if d == &[0, 1, 2, 3, 4] => "weekdays".into(),
             Schedule::Days(d) if d == &[5, 6] => "weekends".into(),
-            Schedule::Days(d) => d.iter().map(|i| N[*i as usize]).collect::<Vec<_>>().join(","),
+            Schedule::Days(d) => d
+                .iter()
+                .map(|i| N[*i as usize])
+                .collect::<Vec<_>>()
+                .join(","),
             Schedule::PerWeek(n) => format!("{n}/week"),
         }
     }

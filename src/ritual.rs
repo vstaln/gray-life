@@ -47,16 +47,22 @@ pub const KICKOFF: &str = "Set up gray-life with me now: go through the settings
 
 pub fn checkin_prompt(kind: &str) -> &'static str {
     match kind {
-        "morning" => "Morning check-in (gray-life). Run the `life` tool with action \"today\". Send one short, warm message: \
+        "morning" => {
+            "Morning check-in (gray-life). Run the `life` tool with action \"today\". Send one short, warm message: \
 what's on today (events, due and overdue todos), which habits are due, and the one thing worth focusing on first. \
-No headings, no lists longer than a few items. If there is nothing tracked at all, reply exactly [SILENT].",
-        "evening" => "Evening check-in (gray-life). Run the `life` tool with action \"today\". Send one short, calm message: \
+No headings, no lists longer than a few items. If there is nothing tracked at all, reply exactly [SILENT]."
+        }
+        "evening" => {
+            "Evening check-in (gray-life). Run the `life` tool with action \"today\". Send one short, calm message: \
 ask about the habits still open today (warm, never judgmental, one line each at most), mention anything still due or happening tomorrow, \
-and invite them to tell you how the day went so you can log it. If nothing is tracked and nothing is open, reply exactly [SILENT].",
-        "weekly" => "Weekly review (gray-life). Run the `life` tool with action \"review\". Send one message: what got done this week, \
+and invite them to tell you how the day went so you can log it. If nothing is tracked and nothing is open, reply exactly [SILENT]."
+        }
+        "weekly" => {
+            "Weekly review (gray-life). Run the `life` tool with action \"review\". Send one message: what got done this week, \
 how each habit went (streaks, kind about misses), what's slipping or overdue, and what's coming next week. \
 End with 1-3 suggested focuses sized to what's actually on their plate, and ask if they want to adjust anything. \
-Suggestions only; don't change entries yourself. If nothing is tracked, reply exactly [SILENT].",
+Suggestions only; don't change entries yourself. If nothing is tracked, reply exactly [SILENT]."
+        }
         _ => "",
     }
 }
