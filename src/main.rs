@@ -34,10 +34,18 @@ fn manifest() -> Value {
         "version": env!("CARGO_PKG_VERSION"),
         "protocol": "1.1",
         "tools": [tool::schema()],
+        "description": "todos, events, habits and a daily log",
         "commands": ["/life"],
         "command_descriptions": {"/life": "todos, events, habits and the daily log"},
         "hooks": ["prompt/context"],
-        "completion": ["today", "onboard", "list", "review", "log", "help"],
+        "completion": [
+            {"arg": "today", "description": "today's todos, events and habits"},
+            {"arg": "onboard", "description": "first-run setup: name, timezone, check-ins"},
+            {"arg": "list", "description": "every open todo, event and habit"},
+            {"arg": "review", "description": "the last seven days at a glance"},
+            {"arg": "log", "description": "a day's log"},
+            {"arg": "help", "description": "usage and verbs"},
+        ],
     })
 }
 
