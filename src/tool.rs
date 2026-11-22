@@ -66,8 +66,8 @@ pub fn call(store: &Store, ctx: Ctx, args: &Value) -> Result<String, String> {
     let _lock = store
         .lock()
         .map_err(|e| format!("can't lock {}: {e}", store.dir.display()))?;
-    let mut life = store.load_life();
-    let mut settings = store.load_settings();
+    let mut life = store.load_life()?;
+    let mut settings = store.load_settings()?;
     let now = now_for(&settings);
     let action = s(args, "action").ok_or("missing action")?;
     // In a chat the host clock says nothing about the user (graytest runs
@@ -734,8 +734,14 @@ fn checkins(
 
 /// The `prompt/context` text.
 pub fn context_text(store: &Store, ctx: Ctx) -> String {
-    let settings = store.load_settings();
-    let life = store.load_life();
+    let settings = match store.load_settings() {
+        Ok(settings) => settings,
+        Err(e) => return format!("gray-life: {e}"),
+    };
+    let life = match store.load_life() {
+        Ok(life) => life,
+        Err(e) => return format!("gray-life: {e}"),
+    };
     let now = now_for(&settings);
     if !ctx.chat && !ctx.cron {
         // Local REPL: usually coding. One line, only when something is live.
