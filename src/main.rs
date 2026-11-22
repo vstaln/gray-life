@@ -91,7 +91,10 @@ fn command_run(store: &Store, params: &Value) -> Value {
     let ctx = Ctx::detect();
     match argv.first().map(String::as_str) {
         Some("onboard" | "setup" | "start") => {
-            let mut settings = store.load_settings();
+            let mut settings = match store.load_settings() {
+                Ok(settings) => settings,
+                Err(e) => return json!({ "text": format!("life: {e}") }),
+            };
             if settings.onboarding.is_some() {
                 settings.onboarding = None;
                 if let Err(e) = store.save_settings(&settings) {
@@ -162,7 +165,13 @@ fn main() {
     match args.first().map(String::as_str) {
         Some("manifest") => println!("{}", manifest()),
         Some("help" | "-h" | "--help") => println!("{USAGE}"),
-        Some("onboard") => println!("{}", ritual::ritual(&store.load_settings())),
+        Some("onboard") => match store.load_settings() {
+            Ok(settings) => println!("{}", ritual::ritual(&settings)),
+            Err(e) => {
+                eprintln!("gray-life: {e}");
+                std::process::exit(1);
+            }
+        },
         None if !std::io::stdin().is_terminal() => {
             if let Err(e) = sidecar_loop(&store) {
                 eprintln!("gray-life: {e}");

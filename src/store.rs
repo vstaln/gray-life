@@ -161,8 +161,8 @@ impl Store {
         Ok(f)
     }
 
-    pub fn load_life(&self) -> Life {
-        read_json(&self.dir.join("life.json")).unwrap_or_default()
+    pub fn load_life(&self) -> Result<Life, String> {
+        Ok(read_json(&self.dir.join("life.json"))?.unwrap_or_default())
     }
     pub fn save_life(&self, life: &Life) -> std::io::Result<()> {
         self.ensure()?;
@@ -170,8 +170,8 @@ impl Store {
         life.version = 1;
         write_json(&self.dir.join("life.json"), &life)
     }
-    pub fn load_settings(&self) -> Settings {
-        read_json(&self.dir.join("settings.json")).unwrap_or_default()
+    pub fn load_settings(&self) -> Result<Settings, String> {
+        Ok(read_json(&self.dir.join("settings.json"))?.unwrap_or_default())
     }
     pub fn save_settings(&self, s: &Settings) -> std::io::Result<()> {
         write_json(&self.dir.join("settings.json"), s)
@@ -205,8 +205,15 @@ impl Store {
     }
 }
 
-fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Option<T> {
-    serde_json::from_slice(&std::fs::read(path).ok()?).ok()
+fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<Option<T>, String> {
+    let bytes = match std::fs::read(path) {
+        Ok(bytes) => bytes,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(format!("can't read {}: {e}", path.display())),
+    };
+    serde_json::from_slice(&bytes)
+        .map(Some)
+        .map_err(|e| format!("can't parse {}: {e}", path.display()))
 }
 
 fn write_json<T: Serialize>(path: &Path, v: &T) -> std::io::Result<()> {
