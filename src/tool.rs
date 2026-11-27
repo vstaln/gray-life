@@ -14,11 +14,13 @@ pub fn schema() -> Value {
     json!({
         "name": "life",
         "description": "The user's personal tracker, shared across every chat: todos (optionally due), events (what's going on / coming up — the calendar), habits (with streaks), and a daily log. \
-    Actions: today (overview) · add {kind: todo|event|habit, text, when?, end?, schedule?, remind?, shared?} · done {id, date?} (finish a todo / check in a habit) · undo {id, date?} · \
-    edit {id, text?, when?, end?, schedule?, note?, shared?} · remove {id} (only when the user asks) · list {kind?, include_done?} · note {text} (append to today's log: what happened, how they feel) · \
-    log {date?} · review (last 7 days) · settings {name?, timezone?, quiet_hours?} · checkins {morning?, evening?, weekly?} (\"08:00\", \"sun 18:00\", \"off\") · onboarding {status: done|skip|restart}. \
+    Pick one --action: today (overview) · add --kind todo|event|habit --text <text> [--when --end --schedule --remind --shared] · \
+    done --id <id> [--date] (finish a todo / check in a habit) · undo --id <id> [--date] · \
+    edit --id <id> [--text --when --end --schedule --note --shared] · remove --id <id> (only when the user asks) · list [--kind --include-done] · \
+    note --text <text> (append to today's log: what happened, how they feel) · log [--date] · review (last 7 days) · \
+    settings [--name --timezone --quiet-hours] · checkins [--morning --evening --weekly] (\"08:00\", \"sun 18:00\", \"off\") · onboarding --status done|skip|restart. \
     Times are the user's wall clock: today, tomorrow 9am, fri 14:00, in 2h, 31 oct, 2026-11-01 14:00. Habit schedules: daily, weekdays, weekends, mon,wed,fri, 3/week. \
-    Items are private (hidden in shared channels) unless shared=true.",
+    Items are private (hidden in shared channels) unless --shared.",
         "parameters": {
             "type": "object",
             "properties": {
